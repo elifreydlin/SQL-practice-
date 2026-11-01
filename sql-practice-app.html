@@ -790,32 +790,39 @@ Object.keys(progress).forEach(k => { if (typeof progress[k] === "boolean") progr
 /* ============================================================
    SQLITE
    ============================================================ */
-async function loadSqlFrom(base) {
-  if (!window.initSqlJs) {
-    await new Promise((res, rej) => {
-      const s = document.createElement("script");
-      s.src = base + "sql-wasm.js";
-      s.onload = res;
-      s.onerror = rej;
-      document.head.appendChild(s);
-    });
-  }
+async function loadSqlFrom(base, file) {
+  // NOTE: always inject a fresh <script> — sql.js caches its init promise
+  // globally, so re-calling initSqlJs after a failure would return the same
+  // rejected promise. Re-executing the script resets that global state.
+  await new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = base + file;
+    s.onload = res;
+    s.onerror = rej;
+    document.head.appendChild(s);
+  });
   return await initSqlJs({ locateFile: (f) => base + f });
 }
 
 async function bootSql() {
-  const sources = [
+  const wasmSources = [
     "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/",
     "https://cdn.jsdelivr.net/npm/sql.js@1.10.2/dist/",
     "https://unpkg.com/sql.js@1.10.2/dist/"
   ];
   let lastErr = null;
-  for (const base of sources) {
+  for (const base of wasmSources) {
     try {
-      window._SQLLib = await loadSqlFrom(base);
+      window._SQLLib = await loadSqlFrom(base, "sql-wasm.js");
       return; // success!
     } catch (e) { lastErr = e; }
   }
+  // Last resort: the asm.js build needs no WebAssembly at all
+  // (survives Lockdown Mode / WASM restrictions). Slower to load, works fine.
+  try {
+    window._SQLLib = await loadSqlFrom("https://cdn.jsdelivr.net/npm/sql.js@1.10.2/dist/", "sql-asm.js");
+    return;
+  } catch (e) { lastErr = e; }
   throw lastErr || new Error("all sources failed");
 }
 
