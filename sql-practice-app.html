@@ -790,10 +790,33 @@ Object.keys(progress).forEach(k => { if (typeof progress[k] === "boolean") progr
 /* ============================================================
    SQLITE
    ============================================================ */
+async function loadSqlFrom(base) {
+  if (!window.initSqlJs) {
+    await new Promise((res, rej) => {
+      const s = document.createElement("script");
+      s.src = base + "sql-wasm.js";
+      s.onload = res;
+      s.onerror = rej;
+      document.head.appendChild(s);
+    });
+  }
+  return await initSqlJs({ locateFile: (f) => base + f });
+}
+
 async function bootSql() {
-  window._SQLLib = await initSqlJs({
-    locateFile: (f) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/${f}`
-  });
+  const sources = [
+    "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/",
+    "https://cdn.jsdelivr.net/npm/sql.js@1.10.2/dist/",
+    "https://unpkg.com/sql.js@1.10.2/dist/"
+  ];
+  let lastErr = null;
+  for (const base of sources) {
+    try {
+      window._SQLLib = await loadSqlFrom(base);
+      return; // success!
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error("all sources failed");
 }
 
 function freshDb() {
@@ -1323,7 +1346,10 @@ editor.addEventListener("input", () => {
   $("xpBadge").textContent = `⭐ ${xp} XP`;
   showStatus("info", "Loading SQLite engine… (first load fetches ~1 MB from CDN)");
   try { await bootSql(); }
-  catch (e) { showStatus("err", "Failed to load the SQLite engine. Check your internet connection and refresh."); return; }
+  catch (e) {
+    showStatus("err", "Couldn't download the database engine from any of 3 sources. If you use an ad/content blocker or VPN, disable it for this page — then pull down to refresh and try again. (Also try switching between Wi-Fi and cellular.)");
+    return;
+  }
   clearOutput();
   updateProgressBar();
   const next = LESSONS.find(l => !isDone(l.id) && isUnlocked(l.id));
