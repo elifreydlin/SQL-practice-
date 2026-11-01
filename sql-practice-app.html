@@ -1,0 +1,1335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQL Dojo 2.0 — Interactive SQL Learning</title>
+<style>
+  :root {
+    --bg: #0d1117; --bg2: #161b22; --bg3: #1c2330;
+    --border: #30363d;
+    --text: #e6edf3; --muted: #8b949e;
+    --accent: #58a6ff; --green: #3fb950; --red: #f85149;
+    --yellow: #d29922; --purple: #bc8cff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg); color: var(--text);
+    height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+  }
+  /* ---------- Header ---------- */
+  header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 10px 20px; background: var(--bg2);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  header h1 { font-size: 18px; font-weight: 700; letter-spacing: 0.5px; white-space: nowrap; }
+  header h1 span { color: var(--accent); }
+  .progress-wrap { flex: 1; max-width: 380px; height: 8px; background: var(--bg3); border-radius: 99px; overflow: hidden; }
+  .progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--purple)); border-radius: 99px; transition: width 0.4s ease; }
+  .progress-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .xp-badge {
+    font-size: 13px; font-weight: 700; padding: 4px 14px; border-radius: 99px;
+    background: rgba(210,153,34,0.15); color: var(--yellow); border: 1px solid rgba(210,153,34,0.35);
+    white-space: nowrap; cursor: default;
+  }
+  /* ---------- Layout ---------- */
+  main { display: flex; flex: 1; overflow: hidden; }
+  /* ---------- Sidebar ---------- */
+  nav {
+    width: 250px; background: var(--bg2); border-right: 1px solid var(--border);
+    overflow-y: auto; flex-shrink: 0; padding: 12px 0;
+  }
+  .nav-section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); padding: 8px 18px 6px; }
+  .lesson-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 18px;
+    cursor: pointer; font-size: 14px; color: var(--muted);
+    border-left: 3px solid transparent; transition: background 0.15s; user-select: none;
+  }
+  .lesson-item:hover { background: var(--bg3); color: var(--text); }
+  .lesson-item.active { background: var(--bg3); color: var(--text); border-left-color: var(--accent); }
+  .lesson-item.locked { opacity: 0.4; cursor: not-allowed; }
+  .lesson-item.locked:hover { background: none; color: var(--muted); }
+  .lesson-num {
+    width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; background: var(--bg3); border: 1px solid var(--border); flex-shrink: 0;
+  }
+  .lesson-item.done .lesson-num { background: var(--green); border-color: var(--green); color: #0d1117; }
+  .lesson-item.active .lesson-num { border-color: var(--accent); color: var(--accent); }
+  /* ---------- Center content ---------- */
+  .content { flex: 1; overflow-y: auto; padding: 24px 28px 60px; min-width: 0; }
+  .lesson-header { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; flex-wrap: wrap; }
+  .lesson-header h2 { font-size: 24px; }
+  .badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .badge.basics { background: rgba(88,166,255,0.15); color: var(--accent); }
+  .badge.intermediate { background: rgba(210,153,34,0.15); color: var(--yellow); }
+  .badge.advanced { background: rgba(188,140,255,0.15); color: var(--purple); }
+  /* ---------- Teach steps (interactive lesson) ---------- */
+  .teach-intro { color: var(--muted); font-size: 14.5px; line-height: 1.65; margin: 10px 0 18px; max-width: 860px; }
+  .teach-intro code, .task code, .teach-card code, .quiz-card code, details code {
+    background: var(--bg3); padding: 2px 6px; border-radius: 4px;
+    font-family: "SF Mono", "Cascadia Code", Consolas, monospace; font-size: 12.5px; color: var(--accent);
+  }
+  .teach-step {
+    display: flex; gap: 14px; max-width: 900px;
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 18px; margin-bottom: 12px;
+  }
+  .step-num {
+    width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+    background: rgba(88,166,255,0.15); color: var(--accent);
+    display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px;
+  }
+  .step-body { flex: 1; min-width: 0; }
+  .step-body h3 { font-size: 15px; margin-bottom: 6px; }
+  .step-body p { color: var(--muted); font-size: 14px; line-height: 1.65; margin-bottom: 8px; }
+  .step-body p strong, .step-body p b { color: var(--text); }
+  .demo-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+  button.demo-btn {
+    font-size: 12.5px; padding: 6px 14px; border-radius: 7px;
+    background: rgba(88,166,255,0.12); border: 1px solid rgba(88,166,255,0.35); color: var(--accent);
+  }
+  button.demo-btn:hover { background: rgba(88,166,255,0.22); transform: none; }
+  .demo-note { font-size: 12px; color: var(--muted); align-self: center; }
+  /* ---------- Visual mini-diagram ---------- */
+  .mini-viz { margin: 6px 0 10px; overflow-x: auto; }
+  .mini-viz table { border-collapse: collapse; font-size: 12px; font-family: "SF Mono", Consolas, monospace; }
+  .mini-viz th { background: var(--bg3); color: var(--accent); padding: 4px 12px; border: 1px solid var(--border); font-weight: 600; }
+  .mini-viz td { padding: 3px 12px; border: 1px solid var(--border); color: var(--muted); }
+  .mini-viz tr.keep td { background: rgba(63,185,80,0.1); color: var(--text); }
+  .mini-viz tr.drop td { opacity: 0.35; text-decoration: line-through; }
+  .mini-viz tr.hot td { background: rgba(210,153,34,0.14); color: var(--yellow); }
+  .viz-caption { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+  /* ---------- Quiz ---------- */
+  .quiz-card {
+    max-width: 900px; background: rgba(188,140,255,0.06);
+    border: 1px solid rgba(188,140,255,0.3); border-radius: 12px; padding: 16px 18px; margin-bottom: 12px;
+  }
+  .quiz-card .quiz-tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--purple); margin-bottom: 8px; }
+  .quiz-card h3 { font-size: 15px; margin-bottom: 12px; line-height: 1.5; }
+  .quiz-opt {
+    display: flex; align-items: center; gap: 10px; padding: 9px 12px; margin-bottom: 7px;
+    border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-size: 13.5px;
+    transition: border-color 0.12s, background 0.12s; user-select: none;
+  }
+  .quiz-opt:hover { border-color: var(--muted); background: var(--bg3); }
+  .quiz-opt input { accent-color: var(--purple); }
+  .quiz-opt.correct { border-color: var(--green); background: rgba(63,185,80,0.1); }
+  .quiz-opt.wrong { border-color: var(--red); background: rgba(248,81,73,0.08); }
+  .quiz-opt.locked { pointer-events: none; }
+  .quiz-explain { font-size: 13px; color: var(--muted); line-height: 1.6; margin-top: 10px; display: none; padding: 10px 12px; background: var(--bg); border-radius: 8px; border: 1px solid var(--border); }
+  .quiz-explain.show { display: block; }
+  /* ---------- Task ---------- */
+  .task {
+    background: rgba(88,166,255,0.06); border: 1px solid rgba(88,166,255,0.25);
+    border-radius: 12px; padding: 16px 18px; font-size: 14.5px; line-height: 1.6;
+    margin: 18px 0 16px; max-width: 900px;
+  }
+  .task strong { color: var(--accent); }
+  /* ---------- Schema ---------- */
+  details { max-width: 900px; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 16px; }
+  details summary { padding: 10px 16px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); user-select: none; }
+  details summary:hover { color: var(--text); }
+  details[open] summary { border-bottom: 1px solid var(--border); }
+  .schema-body { padding: 12px 16px; display: flex; flex-direction: column; gap: 12px; }
+  .schema-table h4 { font-size: 13px; color: var(--purple); font-family: "SF Mono", Consolas, monospace; margin-bottom: 6px; }
+  .schema-table table { border-collapse: collapse; font-size: 12.5px; }
+  .schema-table td { padding: 3px 14px 3px 0; color: var(--muted); font-family: "SF Mono", Consolas, monospace; }
+  .schema-table td:first-child { color: var(--text); }
+  .schema-table td.pk { color: var(--yellow); font-weight: 700; }
+  /* ---------- Editor ---------- */
+  .editor-wrap { max-width: 900px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--bg2); }
+  .editor-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; background: var(--bg3); border-bottom: 1px solid var(--border); }
+  .editor-toolbar .file-name { font-size: 12px; color: var(--muted); font-family: "SF Mono", Consolas, monospace; }
+  .editor-toolbar .hint-key { font-size: 11px; color: var(--muted); }
+  textarea#editor {
+    width: 100%; height: 160px; background: var(--bg2); color: var(--text); border: none; outline: none;
+    resize: vertical; padding: 14px 16px; font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
+    font-size: 14px; line-height: 1.6; tab-size: 4;
+  }
+  /* ---------- Buttons ---------- */
+  .actions { display: flex; gap: 10px; margin: 14px 0; flex-wrap: wrap; }
+  button { font-size: 13.5px; font-weight: 600; padding: 9px 18px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg3); color: var(--text); cursor: pointer; transition: all 0.15s; }
+  button:hover { border-color: var(--muted); transform: translateY(-1px); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #0d1117; }
+  button.primary:hover:not(:disabled) { filter: brightness(1.1); }
+  button.success { background: var(--green); border-color: var(--green); color: #0d1117; }
+  button.ghost { background: transparent; }
+  /* ---------- Output ---------- */
+  .output-area { max-width: 900px; }
+  .status-msg { padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; margin-bottom: 12px; display: none; align-items: center; gap: 10px; }
+  .status-msg.show { display: flex; }
+  .status-msg.ok { background: rgba(63,185,80,0.12); border: 1px solid rgba(63,185,80,0.4); color: var(--green); }
+  .status-msg.err { background: rgba(248,81,73,0.1); border: 1px solid rgba(248,81,73,0.4); color: var(--red); font-family: "SF Mono", Consolas, monospace; font-weight: 500; font-size: 13px; white-space: pre-wrap; }
+  .status-msg.info { background: rgba(210,153,34,0.1); border: 1px solid rgba(210,153,34,0.4); color: var(--yellow); }
+  .result-table-wrap { border: 1px solid var(--border); border-radius: 10px; overflow: auto; max-height: 420px; background: var(--bg2); display: none; }
+  .result-table-wrap.show { display: block; }
+  table.results { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  table.results th { position: sticky; top: 0; background: var(--bg3); color: var(--accent); text-align: left; padding: 10px 16px; font-family: "SF Mono", Consolas, monospace; font-size: 12.5px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  table.results td { padding: 8px 16px; border-bottom: 1px solid rgba(48,54,61,0.5); font-family: "SF Mono", Consolas, monospace; }
+  table.results tr:hover td { background: var(--bg3); }
+  .null-val { color: var(--muted); font-style: italic; }
+  .row-count { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  /* ---------- Compare view ---------- */
+  .compare-wrap { display: flex; gap: 14px; max-width: 900px; margin-bottom: 12px; flex-wrap: wrap; }
+  .compare-col { flex: 1; min-width: 300px; }
+  .compare-col h4 { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .compare-col h4.bad { color: var(--red); }
+  .compare-col h4.good { color: var(--green); }
+  .compare-col .cmp-table { border: 1px solid var(--border); border-radius: 10px; overflow: auto; max-height: 300px; background: var(--bg2); }
+  .compare-col table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  .compare-col th { position: sticky; top: 0; background: var(--bg3); color: var(--accent); text-align: left; padding: 8px 12px; font-family: "SF Mono", Consolas, monospace; font-size: 12px; }
+  .compare-col td { padding: 6px 12px; border-bottom: 1px solid rgba(48,54,61,0.5); font-family: "SF Mono", Consolas, monospace; }
+  .compare-col tr.rowbad td { background: rgba(248,81,73,0.08); }
+  .compare-col tr.rowmiss td { background: rgba(210,153,34,0.08); }
+  /* ---------- Hint reveal ---------- */
+  .reveal-box { max-width: 900px; background: rgba(210,153,34,0.07); border: 1px solid rgba(210,153,34,0.3); border-radius: 10px; padding: 14px 18px; font-size: 14px; line-height: 1.6; margin-top: 14px; display: none; }
+  .reveal-box.show { display: block; }
+  .reveal-box pre { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-top: 10px; overflow-x: auto; font-family: "SF Mono", Consolas, monospace; font-size: 13px; color: var(--purple); }
+  .btn-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  /* ---------- Explorer (right panel) ---------- */
+  .explorer {
+    width: 300px; flex-shrink: 0; background: var(--bg2); border-left: 1px solid var(--border);
+    overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .explorer h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .table-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .table-tab {
+    font-size: 12px; padding: 5px 11px; border-radius: 99px; border: 1px solid var(--border);
+    background: var(--bg3); color: var(--muted); cursor: pointer; transition: all 0.12s;
+    font-family: "SF Mono", Consolas, monospace; user-select: none;
+  }
+  .table-tab:hover { color: var(--text); border-color: var(--muted); }
+  .table-tab.active { background: rgba(88,166,255,0.15); border-color: var(--accent); color: var(--accent); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    font-size: 11.5px; padding: 3px 10px; border-radius: 6px; cursor: pointer; user-select: none;
+    background: var(--bg3); border: 1px solid var(--border); color: var(--text);
+    font-family: "SF Mono", Consolas, monospace; transition: all 0.12s;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+  .chip.pk { border-color: rgba(210,153,34,0.5); color: var(--yellow); }
+  .chip-title { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .preview-wrap { border: 1px solid var(--border); border-radius: 10px; overflow: auto; max-height: 300px; background: var(--bg); }
+  .preview-wrap table { border-collapse: collapse; width: 100%; font-size: 11.5px; }
+  .preview-wrap th { position: sticky; top: 0; background: var(--bg3); color: var(--accent); text-align: left; padding: 6px 10px; font-family: "SF Mono", Consolas, monospace; font-size: 11px; white-space: nowrap; }
+  .preview-wrap td { padding: 5px 10px; border-bottom: 1px solid rgba(48,54,61,0.5); font-family: "SF Mono", Consolas, monospace; white-space: nowrap; }
+  .explorer-tip { font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+  .explorer-tip b { color: var(--accent); }
+  /* ---------- Boot notice (shown only if scripts are blocked) ---------- */
+  .boot-note {
+    max-width: 900px; background: rgba(248,81,73,0.08); border: 1px solid rgba(248,81,73,0.4);
+    border-radius: 12px; padding: 18px 20px; margin-bottom: 18px; font-size: 14px; line-height: 1.7;
+  }
+  .boot-note h3 { color: var(--red); font-size: 16px; margin-bottom: 8px; }
+  .boot-note ol { padding-left: 22px; color: var(--muted); }
+  .boot-note li { margin-bottom: 5px; }
+  .boot-note b { color: var(--text); }
+  /* ---------- Confetti / scrollbar ---------- */
+  .confetti { position: fixed; width: 10px; height: 10px; pointer-events: none; z-index: 999; border-radius: 2px; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg2); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+  @media (max-width: 1100px) {
+    .explorer { display: none; }
+  }
+  @media (max-width: 760px) {
+    nav { width: 64px; }
+    .lesson-item span.label, .nav-section-title { display: none; }
+    .content { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>SQL <span>Dojo</span> <span style="font-size:11px;color:var(--muted);font-weight:400">2.0</span></h1>
+  <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
+  <div class="progress-label" id="progressLabel">0 / 10 lessons</div>
+  <div class="xp-badge" id="xpBadge" title="Earn XP by passing quizzes and solving challenges">⭐ 0 XP</div>
+</header>
+<main>
+  <nav id="sidebar"></nav>
+  <div class="content" id="content">
+    <div class="boot-note" id="bootNote">
+      <h3>⏳ Waiting for the app to start…</h3>
+      <ol>
+        <li>If this message <b>disappears</b>, everything is working — carry on.</li>
+        <li>If it <b>stays visible</b>, your file viewer is blocking JavaScript. Open this file in a real browser instead:
+          on iPhone, tap the <b>Share icon</b> → <b>Open in Safari</b> (or Chrome). On desktop, right-click the file → <b>Open with</b> → your browser.</li>
+        <li>The app needs <b>internet on first load</b> (it downloads a small database engine). Once loaded, it works offline.</li>
+      </ol>
+    </div>
+    <div id="lessonView"></div>
+    <div class="editor-wrap">
+      <div class="editor-toolbar">
+        <span class="file-name">query.sql</span>
+        <span class="hint-key">Ctrl/Cmd + Enter to run · click chips to insert</span>
+      </div>
+      <textarea id="editor" spellcheck="false" placeholder="-- Write your SQL here..."></textarea>
+    </div>
+    <div class="actions">
+      <button class="primary" id="runBtn">▶ Run Query</button>
+      <button class="success" id="checkBtn">✓ Check Answer</button>
+      <button class="ghost" id="resetBtn" title="Reset starter code">↺ Reset Code</button>
+    </div>
+    <div class="output-area">
+      <div class="status-msg" id="statusMsg"></div>
+      <div id="compareWrap"></div>
+      <div class="result-table-wrap" id="tableWrap">
+        <table class="results" id="resultTable"></table>
+      </div>
+      <div class="row-count" id="rowCount"></div>
+    </div>
+    <div class="btn-row">
+      <button class="ghost" id="hintBtn">💡 Hint</button>
+      <button class="ghost" id="solutionBtn">👀 Show Solution</button>
+    </div>
+    <div class="reveal-box" id="revealBox"></div>
+  </div>
+  <aside class="explorer" id="explorer">
+    <h3>🗄 Database Explorer</h3>
+    <div class="table-tabs" id="tableTabs"></div>
+    <div>
+      <div class="chip-title" style="margin-bottom:6px">Columns — click to insert</div>
+      <div class="chips" id="colChips"></div>
+    </div>
+    <div class="preview-wrap" id="previewWrap"><div style="padding:14px;font-size:12px;color:var(--muted)">Pick a table above to preview its data.</div></div>
+    <div class="explorer-tip">Tip: click a <b>column chip</b> to insert it into your query at the cursor, or click a <b>table tab</b> to preview its rows. Nothing you run can hurt the data — the database rebuilds itself every time.</div>
+  </aside>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/sql-wasm.js"></script>
+<script>
+"use strict";
+
+/* ============================================================
+   DEMO DATABASE — rebuilt fresh before every query execution
+   ============================================================ */
+const DB_SQL = `
+CREATE TABLE employees (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  department TEXT NOT NULL,
+  salary INTEGER NOT NULL,
+  hire_date TEXT NOT NULL
+);
+CREATE TABLE departments (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  budget INTEGER NOT NULL
+);
+CREATE TABLE customers (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  city TEXT NOT NULL
+);
+CREATE TABLE products (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  price REAL NOT NULL,
+  stock INTEGER NOT NULL
+);
+CREATE TABLE orders (
+  id INTEGER PRIMARY KEY,
+  customer_id INTEGER NOT NULL REFERENCES customers(id),
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  quantity INTEGER NOT NULL,
+  order_date TEXT NOT NULL
+);
+
+INSERT INTO departments (id, name, budget) VALUES
+  (1, 'Engineering', 500000),
+  (2, 'Sales',       300000),
+  (3, 'Marketing',   200000),
+  (4, 'HR',          120000),
+  (5, 'Finance',     180000);
+
+INSERT INTO employees (id, name, department, salary, hire_date) VALUES
+  (1,  'Ada Lovelace',   'Engineering', 145000, '2020-01-15'),
+  (2,  'Alan Turing',    'Engineering', 138000, '2019-06-01'),
+  (3,  'Grace Hopper',   'Engineering', 125000, '2018-03-12'),
+  (4,  'Edsger Dijkstra','Engineering', 118000, '2021-09-20'),
+  (5,  'Margaret Hamilton','Engineering', 132000, '2020-11-05'),
+  (6,  'Dale Carnegie',  'Sales',        72000, '2022-02-14'),
+  (7,  'Mary Kay Ash',   'Sales',        88000, '2019-04-08'),
+  (8,  'Jordan Belfort', 'Sales',        55000, '2023-07-19'),
+  (9,  'Seth Godin',     'Marketing',    95000, '2020-08-30'),
+  (10, 'Ann Handley',    'Marketing',    83000, '2021-01-25'),
+  (11, 'David Ogilvy',   'Marketing',    105000,'2017-05-16'),
+  (12, 'Peter Drucker',  'HR',           91000, '2018-10-01'),
+  (13, 'Dave Ulrich',    'HR',           67000, '2022-12-03'),
+  (14, 'Warren Buffett', 'Finance',      150000,'2016-03-01'),
+  (15, 'Benjamin Graham','Finance',      78000, '2020-06-22');
+
+INSERT INTO customers (id, name, city) VALUES
+  (1, 'Acme Corp',      'New York'),
+  (2, 'Globex',         'Chicago'),
+  (3, 'Initech',        'Austin'),
+  (4, 'Umbrella LLC',   'Seattle'),
+  (5, 'Hooli',          'San Francisco'),
+  (6, 'Stark Industries','Los Angeles'),
+  (7, 'Wayne Enterprises','Gotham'),
+  (8, 'Wonka Labs',     'Portland');
+
+INSERT INTO products (id, name, price, stock) VALUES
+  (1, 'Wireless Mouse',   24.99,  140),
+  (2, 'Mechanical Keyboard', 89.50, 75),
+  (3, '27" Monitor',     249.99,  32),
+  (4, 'USB-C Hub',        39.95,  0),
+  (5, 'Webcam 1080p',     59.99,  58),
+  (6, 'Laptop Stand',     34.50,  90),
+  (7, 'Noise-Canceling Headphones', 199.99, 41),
+  (8, 'External SSD 1TB', 109.00, 12);
+
+INSERT INTO orders (id, customer_id, product_id, quantity, order_date) VALUES
+  (1,  1, 3, 2, '2026-01-12'),
+  (2,  1, 1, 5, '2026-01-12'),
+  (3,  2, 7, 1, '2026-01-15'),
+  (4,  3, 2, 3, '2026-01-18'),
+  (5,  3, 8, 1, '2026-01-18'),
+  (6,  4, 5, 4, '2026-02-02'),
+  (7,  1, 7, 2, '2026-02-05'),
+  (8,  5, 3, 1, '2026-02-09'),
+  (9,  6, 2, 2, '2026-02-14'),
+  (10, 7, 6, 6, '2026-02-20'),
+  (11, 3, 1, 2, '2026-03-01'),
+  (12, 8, 7, 1, '2026-03-04'),
+  (13, 5, 5, 3, '2026-03-10'),
+  (14, 2, 2, 1, '2026-03-12'),
+  (15, 6, 3, 1, '2026-03-15');
+`;
+
+/* ============================================================
+   LESSONS
+   teach:  interactive steps. step types:
+     - { h, p, demo }            -> explanation + "Try it" button
+     - { h, p, viz: {...} }      -> explanation + mini row diagram
+   quiz:   multiple choice, XP on correct
+   hints:  3 progressive levels
+   compare: "exact" | "set" | "custom" | "none"
+   ============================================================ */
+const LESSONS = [
+  {
+    id: 0, level: "basics", title: "Your First SELECT", short: "SELECT columns",
+    intro: `Welcome to the Dojo! Every SQL query starts with <code>SELECT</code>. You name the columns you want, then say <code>FROM</code> which table they live in. Try the demos below — they run live against the real database.`,
+    teach: [
+      { h: "Grab everything with *", p: `The fastest way to look at a table is <code>SELECT *</code> — the star means <strong>all columns, all rows</strong>. Great for exploring, too much for reports.`,
+        demo: "SELECT * FROM employees;" },
+      { h: "Pick just the columns you need", p: `List columns by name, separated by commas. SQL only returns what you ask for — nothing more.`,
+        demo: "SELECT name, salary FROM employees;" },
+      { h: "See it visually", p: `When you ask for <code>name, salary</code>, SQL keeps <strong>only those two columns</strong> from every row:`,
+        viz: {
+          before: { cols: ["id","name","department","salary"], rows: [
+            ["1","Ada Lovelace","Engineering","145000"],
+            ["2","Alan Turing","Engineering","138000"],
+            ["3","Grace Hopper","Engineering","125000"] ] },
+          after: { cols: ["name","salary"], rows: [
+            ["Ada Lovelace","145000"], ["Alan Turing","138000"], ["Grace Hopper","125000"] ] },
+          caption: "SELECT name, salary FROM employees;  →  columns are filtered away"
+        } }
+    ],
+    quiz: {
+      q: "What does SELECT * FROM employees; return?",
+      choices: [
+        "Only the first row of the employees table",
+        "Every column of every row in the employees table",
+        "Only the columns named in the employees table's schema"
+      ],
+      answer: 1,
+      explain: "The * is a wildcard meaning 'all columns', and without a WHERE clause every row comes along too."
+    },
+    task: `Select the <strong>name</strong> and <strong>salary</strong> of every employee from the <strong>employees</strong> table.`,
+    starter: "-- Select name and salary from the employees table\n",
+    solution: "SELECT name, salary FROM employees;",
+    hints: [
+      "The pattern is: SELECT column1, column2 FROM table_name;",
+      "Both columns live in the employees table — SELECT name, salary FROM ...",
+      "SELECT name, salary FROM employees;"
+    ],
+    compare: "set"
+  },
+  {
+    id: 1, level: "basics", title: "Filtering with WHERE", short: "WHERE",
+    intro: `Tables hold far more data than you need. <code>WHERE</code> is a row filter: only rows matching the condition survive. Text goes in single quotes; numbers are bare.`,
+    teach: [
+      { h: "Filter with a comparison", p: `This keeps only rows where the test is true. Rows that fail are silently dropped — SQL doesn't warn you, it just discards them.`,
+        viz: {
+          before: { cols: ["name","salary"], rows: [
+            ["Ada Lovelace","145000"], ["Dale Carnegie","72000"],
+            ["Grace Hopper","125000"], ["Dave Ulrich","67000"] ] },
+          after: { cols: ["name","salary"], rows: [
+            ["Ada Lovelace","145000"], ["Grace Hopper","125000"] ] },
+          condition: (cols) => cols[1] > 100000,
+          caption: "SELECT name, salary FROM employees WHERE salary > 100000;  →  strikethrough rows are dropped"
+        },
+        demo: "SELECT name, salary FROM employees WHERE salary > 100000;" },
+      { h: "Text needs single quotes", p: `Numbers compare directly (<code>salary > 100000</code>), but text values must be wrapped in quotes: <code>department = 'Sales'</code>. Chain conditions with <code>AND</code> / <code>OR</code>.`,
+        demo: "SELECT name, salary FROM employees WHERE department = 'Sales' OR department = 'HR';" }
+    ],
+    quiz: {
+      q: "Which query finds employees in the Sales department?",
+      choices: [
+        "SELECT * FROM employees WHERE department = Sales;",
+        "SELECT * FROM employees WHERE department = 'Sales';",
+        "SELECT * FROM employees IF department = 'Sales';"
+      ],
+      answer: 1,
+      explain: "Text values always go in single quotes; and the filtering keyword is WHERE, not IF."
+    },
+    task: `Find all employees in the <strong>Engineering</strong> department who earn <strong>more than 130,000</strong>. Show name, department and salary.`,
+    starter: "-- Engineers earning over 130000\n",
+    solution: "SELECT name, department, salary FROM employees WHERE department = 'Engineering' AND salary > 130000;",
+    hints: [
+      "Two conditions joined by AND: department must equal 'Engineering' AND salary must be > 130000.",
+      "Remember quotes around 'Engineering' — it's text.",
+      "SELECT name, department, salary FROM employees WHERE department = 'Engineering' AND salary > 130000;"
+    ],
+    compare: "set"
+  },
+  {
+    id: 2, level: "basics", title: "Sorting & Limiting", short: "ORDER BY / LIMIT",
+    intro: `By default, rows come back in storage order — chaos. <code>ORDER BY</code> sorts; add <code>DESC</code> for biggest-first. <code>LIMIT n</code> keeps only the first n rows. Together: "top N" queries.`,
+    teach: [
+      { h: "Sort, then cut", p: `ORDER BY happens before LIMIT, so this returns the <strong>3 highest salaries</strong>, not just any 3 rows. This ordering matters for your challenge!`,
+        demo: "SELECT name, salary FROM employees ORDER BY salary DESC LIMIT 5;" },
+      { h: "Watch the order matter", p: `Same data, two orders. The checker for this lesson cares about row order — so always include your ORDER BY.`,
+        viz: {
+          before: { cols: ["name","salary"], rows: [
+            ["Dale Carnegie","72000"], ["Ada Lovelace","145000"], ["Mary Kay Ash","88000"],
+            ["Warren Buffett","150000"], ["Ann Handley","83000"] ] },
+          after: { cols: ["name","salary"], rows: [
+            ["Warren Buffett","150000"], ["Ada Lovelace","145000"], ["Mary Kay Ash","88000"],
+            ["Ann Handley","83000"], ["Dale Carnegie","72000"] ] },
+          caption: "ORDER BY salary DESC  →  highest salary jumps to the top"
+        } }
+    ],
+    quiz: {
+      q: "What does ORDER BY salary DESC LIMIT 3 give you?",
+      choices: [
+        "The 3 rows that were inserted first",
+        "The 3 employees with the lowest salaries",
+        "The 3 employees with the highest salaries"
+      ],
+      answer: 2,
+      explain: "DESC sorts high-to-low, and LIMIT 3 keeps the top 3 of that sorted list."
+    },
+    task: `Show the <strong>top 3 highest-paid</strong> employees. Return only the <strong>name</strong> column, sorted so the highest salary is first.`,
+    starter: "-- Top 3 earners, names only\n",
+    solution: "SELECT name FROM employees ORDER BY salary DESC LIMIT 3;",
+    hints: [
+      "You need all three pieces: SELECT name ... ORDER BY salary DESC ... LIMIT 3.",
+      "The checker compares row order here, so the ORDER BY is required.",
+      "SELECT name FROM employees ORDER BY salary DESC LIMIT 3;"
+    ],
+    compare: "exact"
+  },
+  {
+    id: 3, level: "basics", title: "Aggregate Functions", short: "COUNT / AVG / MAX",
+    intro: `Aggregates collapse many rows into a single number: <code>COUNT(*)</code> counts rows, <code>AVG()</code> averages, <code>SUM()</code> totals, <code>MAX()</code>/<code>MIN()</code> find extremes.`,
+    teach: [
+      { h: "One number from many rows", p: `Run it: 15 rows go in, one number comes out. Add <code>AS alias</code> to give the result column a readable name.`,
+        demo: "SELECT COUNT(*) AS total_employees FROM employees;" },
+      { h: "Several aggregates at once", p: `You can compute multiple stats in the same query — each becomes its own column. Note that AVG gives a decimal even though salaries are whole numbers.`,
+        demo: "SELECT MIN(salary) AS lowest, MAX(salary) AS highest, AVG(salary) AS average FROM employees;" }
+    ],
+    quiz: {
+      q: "Which function tells you how many rows a table has?",
+      choices: ["SUM(*)", "COUNT(*)", "TOTAL(*)"],
+      answer: 1,
+      explain: "COUNT(*) counts rows. SUM adds values, and TOTAL isn't a real SQL aggregate."
+    },
+    task: `Compute a single summary row for the <strong>employees</strong> table: how many employees there are (alias <strong>employee_count</strong>), their <strong>average salary</strong> (alias <strong>avg_salary</strong>), and the <strong>highest</strong> salary (alias <strong>max_salary</strong>).`,
+    starter: "-- One row: headcount, average salary, top salary\n",
+    solution: "SELECT COUNT(*) AS employee_count, AVG(salary) AS avg_salary, MAX(salary) AS max_salary FROM employees;",
+    hints: [
+      "Three aggregates, three aliases: COUNT(*), AVG(salary), MAX(salary).",
+      "Use AS to rename each: AS employee_count, AS avg_salary, AS max_salary.",
+      "SELECT COUNT(*) AS employee_count, AVG(salary) AS avg_salary, MAX(salary) AS max_salary FROM employees;"
+    ],
+    compare: "set"
+  },
+  {
+    id: 4, level: "intermediate", title: "Grouping with GROUP BY", short: "GROUP BY",
+    intro: `One global number is rarely enough — you want <em>per department</em> stats. <code>GROUP BY</code> buckets rows that share a value, and aggregates run inside each bucket.`,
+    teach: [
+      { h: "Buckets first, math second", p: `Watch what happens conceptually: rows are <strong>grouped by department</strong>, then COUNT runs once per group. The golden rule: every non-aggregated column in SELECT must be in GROUP BY.`,
+        viz: {
+          before: { cols: ["name","department","salary"], rows: [
+            ["Ada Lovelace","Engineering","145000"], ["Alan Turing","Engineering","138000"],
+            ["Grace Hopper","Engineering","125000"], ["Dale Carnegie","Sales","72000"],
+            ["Mary Kay Ash","Sales","88000"], ["Jordan Belfort","Sales","55000"] ] },
+          after: { cols: ["department","num_employees"], rows: [
+            ["Engineering","3"], ["Sales","3"] ] },
+          caption: "GROUP BY department + COUNT(*)  →  each department becomes one row"
+        },
+        demo: "SELECT department, COUNT(*) AS headcount FROM employees GROUP BY department;" },
+      { h: "Mix aggregates freely", p: `Each group can produce several stats. Try grouping by <code>city</code> in the customers table, or <code>product_id</code> in orders.`,
+        demo: "SELECT department, COUNT(*) AS n, ROUND(AVG(salary)) AS avg_salary FROM employees GROUP BY department;" }
+    ],
+    quiz: {
+      q: "What's wrong with: SELECT department, name, COUNT(*) FROM employees GROUP BY department;",
+      choices: [
+        "Nothing — it works fine",
+        "'name' isn't aggregated and isn't in GROUP BY, so it's ambiguous which name to show",
+        "COUNT(*) must come before department in the SELECT list"
+      ],
+      answer: 1,
+      explain: "Each group has many names but only one row of output — SQL refuses to guess which name you mean. That's why the rule exists."
+    },
+    task: `For each <strong>department</strong>: the department name, its <strong>employee count</strong> (alias <strong>num_employees</strong>) and <strong>average salary</strong> (alias <strong>avg_salary</strong>).`,
+    starter: "-- Stats per department\n",
+    solution: "SELECT department, COUNT(*) AS num_employees, AVG(salary) AS avg_salary FROM employees GROUP BY department;",
+    hints: [
+      "SELECT department, COUNT(*) AS num_employees, AVG(salary) AS avg_salary ... GROUP BY department.",
+      "The GROUP BY column is department — every other column must be an aggregate.",
+      "SELECT department, COUNT(*) AS num_employees, AVG(salary) AS avg_salary FROM employees GROUP BY department;"
+    ],
+    compare: "set"
+  },
+  {
+    id: 5, level: "intermediate", title: "Filtering Groups with HAVING", short: "HAVING",
+    intro: `<code>WHERE</code> filters rows <em>before</em> grouping. <code>HAVING</code> filters the <em>groups afterwards</em> — you can't put an aggregate in WHERE, which is exactly why HAVING exists.`,
+    teach: [
+      { h: "Two-stage filtering", p: `First SQL buckets rows (GROUP BY), <em>then</em> HAVING throws away whole buckets that fail the test. Groups that survive keep all their original rows in the aggregate calculation.`,
+        viz: {
+          before: { cols: ["department","avg_salary"], rows: [
+            ["Engineering","131600"], ["Sales","71667"], ["Marketing","94333"],
+            ["HR","79000"], ["Finance","114000"] ] },
+          after: { cols: ["department","avg_salary"], rows: [
+            ["Engineering","131600"], ["Marketing","94333"], ["Finance","114000"] ] },
+          condition: (cols) => parseInt(cols[1]) > 80000,
+          caption: "HAVING AVG(salary) > 80000  →  Sales and HR buckets are discarded"
+        },
+        demo: "SELECT department, COUNT(*) AS n, ROUND(AVG(salary)) AS avg_salary FROM employees GROUP BY department HAVING AVG(salary) > 80000;" }
+    ],
+    quiz: {
+      q: "Where can you use an aggregate like COUNT(*) as a filter?",
+      choices: ["In a WHERE clause", "In a HAVING clause", "In both"],
+      answer: 1,
+      explain: "WHERE runs before grouping exists, so aggregates aren't available there. HAVING runs after, so it's the only place to filter on aggregates."
+    },
+    task: `Show each department whose <strong>average salary is above 80,000</strong>: department, employee count, and average salary.`,
+    starter: "-- Departments paying well on average\n",
+    solution: "SELECT department, COUNT(*) AS num_employees, AVG(salary) AS avg_salary FROM employees GROUP BY department HAVING AVG(salary) > 80000;",
+    hints: [
+      "Start from the GROUP BY query of the previous lesson and add a HAVING clause.",
+      "HAVING tests an aggregate: HAVING AVG(salary) > 80000.",
+      "SELECT department, COUNT(*) AS num_employees, AVG(salary) AS avg_salary FROM employees GROUP BY department HAVING AVG(salary) > 80000;"
+    ],
+    compare: "set"
+  },
+  {
+    id: 6, level: "intermediate", title: "Joining Tables", short: "JOIN",
+    intro: `Related data lives in separate tables — orders reference customers and products by ID. A <code>JOIN</code> stitches tables together on a matching key: <code>FROM a JOIN b ON a.key = b.key</code>.`,
+    teach: [
+      { h: "Match keys, merge rows", p: `Here each order row (with a numeric <code>customer_id</code>) pairs with the customer row that has the same <code>id</code>. Watch two tables become one wide result.`,
+        viz: {
+          before: { cols: ["orders.id","orders.customer_id","customers.id","customers.name"], rows: [
+            ["1","1","1","Acme Corp"], ["3","2","2","Globex"], ["4","3","3","Initech"],
+            ["6","4","4","Umbrella LLC"], ["8","5","5","Hooli"] ] },
+          after: { cols: ["order_id","customer_name"], rows: [
+            ["1","Acme Corp"], ["3","Globex"], ["4","Initech"], ["6","Umbrella LLC"], ["8","Hooli"] ] },
+          caption: "JOIN customers ON orders.customer_id = customers.id  →  IDs match, names appear"
+        },
+        demo: "SELECT o.id AS order_id, c.name AS customer FROM orders o JOIN customers c ON o.customer_id = c.id LIMIT 6;" },
+      { h: "Chain multiple joins", p: `You can join as many tables as you like. Notice the aliases (<code>o</code>, <code>c</code>, <code>p</code>) — they keep long queries readable.`,
+        demo: "SELECT o.id, c.name AS customer, p.name AS product FROM orders o JOIN customers c ON o.customer_id = c.id JOIN products p ON o.product_id = p.id LIMIT 6;" }
+    ],
+    quiz: {
+      q: "In: FROM orders o JOIN customers c ON o.customer_id = c.id — what does the ON clause do?",
+      choices: [
+        "Renames the orders table to o",
+        "Defines how rows from the two tables match each other",
+        "Filters out customers with no orders"
+      ],
+      answer: 1,
+      explain: "ON specifies the join condition: a pair of rows merges only when orders.customer_id equals customers.id."
+    },
+    task: `List every order: the <strong>order id</strong>, the <strong>customer's name</strong>, and the <strong>product name</strong>. Join <strong>orders</strong> to both <strong>customers</strong> and <strong>products</strong>.`,
+    starter: "-- Which customer bought which product?\n",
+    solution: "SELECT o.id, c.name AS customer_name, p.name AS product_name FROM orders o JOIN customers c ON o.customer_id = c.id JOIN products p ON o.product_id = p.id;",
+    hints: [
+      "Two joins: orders→customers on customer_id, orders→products on product_id.",
+      "Use aliases: FROM orders o JOIN customers c ON o.customer_id = c.id JOIN products p ON ...",
+      "SELECT o.id, c.name AS customer_name, p.name AS product_name FROM orders o JOIN customers c ON o.customer_id = c.id JOIN products p ON o.product_id = p.id;"
+    ],
+    compare: "set"
+  },
+  {
+    id: 7, level: "intermediate", title: "Join + Aggregate = Reports", short: "JOIN + GROUP BY",
+    intro: `This is where SQL earns its keep: <strong>join tables, then aggregate</strong>. The pattern behind every "revenue per customer" or "orders per product" dashboard.`,
+    teach: [
+      { h: "Revenue lives in two places", p: `Quantity is in <code>orders</code>, price is in <code>products</code> — multiply them <em>after</em> joining so each order line becomes a dollar amount. Then GROUP BY customer and SUM.`,
+        demo: "SELECT c.name, SUM(o.quantity * p.price) AS total_spent FROM orders o JOIN customers c ON o.customer_id = c.id JOIN products p ON o.product_id = p.id GROUP BY c.id ORDER BY total_spent DESC;" },
+      { h: "Every aggregate from lesson 3 still works", p: `Swap SUM for COUNT to count orders, MAX to find each customer's biggest single order. The skeleton — join, group, aggregate — never changes.` }
+    ],
+    quiz: {
+      q: "To compute total revenue per customer, which two tables must join into the calculation?",
+      choices: [
+        "customers and employees",
+        "orders (for quantity) and products (for price)",
+        "departments and products"
+      ],
+      answer: 1,
+      explain: "Revenue = quantity × price. Quantity comes from orders, price from products; customers only supplies the name for grouping."
+    },
+    task: `Build a revenue report: for each customer, their <strong>name</strong> and <strong>total amount spent</strong> (quantity × price, alias <strong>total_spent</strong>), highest spender first.`,
+    starter: "-- Revenue per customer, biggest first\n",
+    solution: "SELECT c.name, SUM(o.quantity * p.price) AS total_spent FROM orders o JOIN customers c ON o.customer_id = c.id JOIN products p ON o.product_id = p.id GROUP BY c.id ORDER BY total_spent DESC;",
+    hints: [
+      "Join all three tables, GROUP BY c.id, aggregate SUM(o.quantity * p.price).",
+      "Don't forget ORDER BY total_spent DESC — the checker compares row order.",
+      "SELECT c.name, SUM(o.quantity * p.price) AS total_spent FROM orders o JOIN customers c ON o.customer_id = c.id JOIN products p ON o.product_id = p.id GROUP BY c.id ORDER BY total_spent DESC;"
+    ],
+    compare: "exact"
+  },
+  {
+    id: 8, level: "advanced", title: "Subqueries", short: "Subquery",
+    intro: `A <code>SELECT</code> can live inside another query. The classic: compare every row against a statistic — like the average — computed on the fly.`,
+    teach: [
+      { h: "A query inside a query", p: `The inner query computes <strong>one number</strong> — the company-wide average salary (~103,133). The outer query tests each employee against it. Try changing the inner query to <code>MAX(salary)</code> or a fixed number.`,
+        demo: "SELECT name, salary FROM employees WHERE salary > (SELECT AVG(salary) FROM employees) ORDER BY salary DESC;" },
+      { h: "Subqueries can return lists too", p: `With <code>IN</code>, a subquery returns many values and the outer query checks membership — "customers who ever ordered the monitor".`,
+        demo: "SELECT name FROM customers WHERE id IN (SELECT customer_id FROM orders WHERE product_id = 3);" }
+    ],
+    quiz: {
+      q: "In WHERE salary > (SELECT AVG(salary) FROM employees), what does the subquery produce?",
+      choices: [
+        "One number — the average salary of all employees",
+        "A list of every salary in the table",
+        "An error — you can't nest SELECT like that"
+      ],
+      answer: 0,
+      explain: "Because the subquery returns a single value, it works as a scalar comparison in the outer WHERE."
+    },
+    task: `Find employees earning <strong>more than the company-wide average salary</strong>. Show name, department and salary, highest earner first.`,
+    starter: "-- Who beats the average?\n",
+    solution: "SELECT name, department, salary FROM employees WHERE salary > (SELECT AVG(salary) FROM employees) ORDER BY salary DESC;",
+    hints: [
+      "The filter compares salary to (SELECT AVG(salary) FROM employees).",
+      "Wrap up with ORDER BY salary DESC.",
+      "SELECT name, department, salary FROM employees WHERE salary > (SELECT AVG(salary) FROM employees) ORDER BY salary DESC;"
+    ],
+    compare: "exact"
+  },
+  {
+    id: 9, level: "advanced", title: "Changing Data", short: "INSERT / UPDATE / DELETE",
+    intro: `So far you've only read. The write trio: <code>INSERT INTO ... VALUES (...)</code> adds a row, <code>UPDATE ... SET ... WHERE ...</code> changes it, <code>DELETE FROM ... WHERE ...</code> removes it. <code>WHERE</code> is your seatbelt — without it you touch every row!`,
+    teach: [
+      { h: "INSERT — add a row", p: `Column list, then values in the same order. The <code>id</code> auto-assigns because it's INTEGER PRIMARY KEY. Run the demo, then note how the row appears at the bottom.`,
+        demo: "SELECT COUNT(*) AS before_insert FROM products;\nINSERT INTO products (name, price, stock) VALUES ('Test Gadget', 9.99, 5);\nSELECT COUNT(*) AS after_insert FROM products;" },
+      { h: "UPDATE & DELETE — change and remove", p: `UPDATE rewrites values; DELETE removes rows. Both accept any WHERE condition. Try running this, then query the table to see Gadget World vanish.`,
+        demo: "INSERT INTO customers (name, city) VALUES ('Gadget World', 'Boston');\nUPDATE customers SET city = 'Cambridge' WHERE name = 'Gadget World';\nDELETE FROM customers WHERE name = 'Gadget World';\nSELECT * FROM customers;" }
+    ],
+    quiz: {
+      q: "What's the danger of: DELETE FROM products;  (no WHERE clause)?",
+      choices: [
+        "Nothing — it only removes rows with NULL values",
+        "It deletes every row in the products table",
+        "It deletes the table itself"
+      ],
+      answer: 1,
+      explain: "No WHERE means the condition is 'all rows'. The table structure survives, but the data is gone. (In this app the database resets every run, so experiment freely!)"
+    },
+    task: `Three steps as <strong>three statements</strong> in this editor: (1) <strong>INSERT</strong> a product: name <strong>'Ergonomic Chair'</strong>, price <strong>349.99</strong>, stock <strong>25</strong>. (2) <strong>UPDATE</strong> that chair's price to <strong>299.99</strong>. (3) <strong>DELETE</strong> the <strong>'USB-C Hub'</strong>.`,
+    starter: "-- 1) Insert the chair\n\n-- 2) Discount it to 299.99\n\n-- 3) Remove the USB-C Hub\n",
+    solution: "INSERT INTO products (name, price, stock) VALUES ('Ergonomic Chair', 349.99, 25);\nUPDATE products SET price = 299.99 WHERE name = 'Ergonomic Chair';\nDELETE FROM products WHERE name = 'USB-C Hub';",
+    hints: [
+      "INSERT INTO products (name, price, stock) VALUES ('Ergonomic Chair', 349.99, 25); — then UPDATE ... WHERE name = 'Ergonomic Chair'; then DELETE ... WHERE name = 'USB-C Hub';",
+      "The WHERE clauses use the product name in single quotes.",
+      "Full solution: INSERT INTO products (name, price, stock) VALUES ('Ergonomic Chair', 349.99, 25); UPDATE products SET price = 299.99 WHERE name = 'Ergonomic Chair'; DELETE FROM products WHERE name = 'USB-C Hub';"
+    ],
+    compare: "custom",
+    verify: "SELECT name, price, stock FROM products ORDER BY id;"
+  },
+  {
+    id: 10, level: "advanced", title: "Free Sandbox", short: "Playground",
+    intro: `No task here — the whole database is yours. Explore the schema, break things, invent questions. Everything rebuilds on every run.`,
+    teach: [],
+    quiz: null,
+    task: `Try whatever you like. Ideas: which products are out of stock? Total order count per city? Employees hired before 2020?`,
+    starter: "-- Sandbox: explore freely!\n",
+    solution: "",
+    hints: [],
+    compare: "none"
+  }
+];
+
+const SCHEMA_INFO = [
+  { table: "employees", cols: [
+    ["id", "INTEGER", "PK"], ["name", "TEXT"], ["department", "TEXT"], ["salary", "INTEGER"], ["hire_date", "TEXT"] ] },
+  { table: "departments", cols: [
+    ["id", "INTEGER", "PK"], ["name", "TEXT"], ["budget", "INTEGER"] ] },
+  { table: "customers", cols: [
+    ["id", "INTEGER", "PK"], ["name", "TEXT"], ["city", "TEXT"] ] },
+  { table: "products", cols: [
+    ["id", "INTEGER", "PK"], ["name", "TEXT"], ["price", "REAL"], ["stock", "INTEGER"] ] },
+  { table: "orders", cols: [
+    ["id", "INTEGER", "PK"], ["customer_id", "INTEGER", "FK"], ["product_id", "INTEGER", "FK"], ["quantity", "INTEGER"], ["order_date", "TEXT"] ] },
+];
+
+/* ============================================================
+   STATE & PERSISTENCE
+   progress = { [lessonId]: { done, quizCorrect, quizAnswered } }
+   xp earned once per quiz / challenge
+   ============================================================ */
+const STORAGE_KEY = "sqlDojo2_progress";
+const CODE_KEY = "sqlDojo2_code";
+const XP_KEY = "sqlDojo2_xp";
+let db = null;
+let currentLesson = 0;
+let progress = {}, savedCode = {};
+let xp = +(localStorage.getItem(XP_KEY) || 0);
+let hintLevel = 0;
+try { progress = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch (e) { progress = {}; }
+try { savedCode = JSON.parse(localStorage.getItem(CODE_KEY) || "{}"); } catch (e) { savedCode = {}; }
+// migrate v1 format (boolean flags) -> v2 objects
+Object.keys(progress).forEach(k => { if (typeof progress[k] === "boolean") progress[k] = { done: progress[k] }; });
+
+/* ============================================================
+   SQLITE
+   ============================================================ */
+async function bootSql() {
+  window._SQLLib = await initSqlJs({
+    locateFile: (f) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/${f}`
+  });
+}
+
+function freshDb() {
+  const d = new window._SQLLib.Database();
+  d.run(DB_SQL);
+  return d;
+}
+
+// Run sql on a brand-new DB; returns {columns, rows} of the LAST data-returning statement.
+function runSql(sql) {
+  const d = freshDb();
+  try {
+    const stmts = d.exec(sql);
+    d.close();
+    if (!stmts.length) return { columns: [], rows: [] };
+    const dataStmts = stmts.filter(s => s.columns.length);
+    if (!dataStmts.length) return { columns: [], rows: [] };
+    const last = dataStmts[dataStmts.length - 1];
+    return { columns: last.columns, rows: last.values };
+  } catch (err) {
+    d.close();
+    throw new Error(err.message);
+  }
+}
+
+function executeWrites(sql) {
+  const d = freshDb();
+  try { d.run(sql); } finally { d.close(); }
+}
+
+function queryOnFreshDb(sql, verify) {
+  const d = freshDb();
+  let out;
+  try {
+    d.run(sql);
+    const r = d.exec(verify);
+    out = r.length ? { columns: r[r.length - 1].columns, rows: r[r.length - 1].values } : { columns: [], rows: [] };
+  } finally { d.close(); }
+  return out;
+}
+
+/* ============================================================
+   UI HELPERS
+   ============================================================ */
+const $ = (id) => document.getElementById(id);
+const editor = $("editor");
+
+function normVal(v) {
+  if (v === null || v === undefined) return "__NULL__";
+  if (typeof v === "number") return Math.round(v * 1000) / 1000;
+  return String(v);
+}
+const sig = (res, ordered) => {
+  const rows = res.rows.map(r => r.map(normVal));
+  if (!ordered) rows.sort();
+  return JSON.stringify(rows);
+};
+
+function escapeHtml(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+function showStatus(kind, text) {
+  const el = $("statusMsg");
+  el.className = "status-msg show " + kind;
+  el.textContent = text;
+}
+function hideStatus() { $("statusMsg").className = "status-msg"; }
+
+function tableHtml(columns, rows, extraRowClass) {
+  let html = "<thead><tr>" + columns.map(c => `<th>${escapeHtml(c)}</th>`).join("") + "</tr></thead><tbody>";
+  html += rows.map((r, i) => {
+    const cls = extraRowClass ? extraRowClass(r, i) : "";
+    return `<tr${cls ? ` class="${cls}"` : ""}>` + r.map(v =>
+      `<td>${v === null ? '<span class="null-val">NULL</span>' : escapeHtml(String(v))}</td>`).join("") + "</tr>";
+  }).join("");
+  return html + "</tbody>";
+}
+
+function renderResult(res) {
+  const wrap = $("tableWrap");
+  if (!res.columns.length) {
+    wrap.className = "result-table-wrap";
+    $("resultTable").innerHTML = "";
+    $("rowCount").textContent = "Statement executed successfully (no rows returned — INSERT/UPDATE/DELETE or DDL).";
+    return;
+  }
+  $("resultTable").innerHTML = tableHtml(res.columns, res.rows);
+  wrap.className = "result-table-wrap show";
+  $("rowCount").textContent = `${res.rows.length} row${res.rows.length === 1 ? "" : "s"} · ${res.columns.length} column${res.columns.length === 1 ? "" : "s"}`;
+}
+
+function clearOutput() {
+  hideStatus();
+  $("tableWrap").className = "result-table-wrap";
+  $("resultTable").innerHTML = "";
+  $("rowCount").textContent = "";
+  $("compareWrap").innerHTML = "";
+}
+
+/* ============================================================
+   XP & PROGRESSION
+   ============================================================ */
+function addXp(n) {
+  xp += n;
+  localStorage.setItem(XP_KEY, xp);
+  $("xpBadge").textContent = `⭐ ${xp} XP`;
+}
+function isDone(id) { const p = progress[id]; return !!(p && p.done); }
+function isUnlocked(id) {
+  if (id === 0) return true;
+  if (id === LESSONS.length - 1) return isDone(id - 1);
+  return isDone(id - 1);
+}
+function markDone(id) {
+  if (!progress[id]) progress[id] = {};
+  if (!progress[id].done) {
+    progress[id].done = true;
+    addXp(25);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+    updateProgressBar();
+  }
+}
+function updateProgressBar() {
+  const total = LESSONS.length - 1;
+  const doneCount = LESSONS.slice(0, -1).filter(l => isDone(l.id)).length;
+  $("progressBar").style.width = (doneCount / total * 100) + "%";
+  $("progressLabel").textContent = `${doneCount} / ${total} lessons`;
+}
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+function renderSidebar() {
+  const nav = $("sidebar");
+  let html = '<div class="nav-section-title">Course</div>';
+  html += LESSONS.map(l => {
+    const locked = !isUnlocked(l.id);
+    const cls = ["lesson-item", l.id === currentLesson ? "active" : "", locked ? "locked" : "", isDone(l.id) ? "done" : ""].filter(Boolean).join(" ");
+    const icon = isDone(l.id) ? "✓" : (l.id + 1);
+    return `<div class="${cls}" data-id="${l.id}"><div class="lesson-num">${locked ? "🔒" : icon}</div><span class="label">${l.title}${locked ? " 🔒" : ""}</span></div>`;
+  }).join("");
+  nav.innerHTML = html;
+  nav.querySelectorAll(".lesson-item").forEach(el => {
+    el.addEventListener("click", () => {
+      const id = +el.dataset.id;
+      if (!isUnlocked(id)) { showStatus("info", "Finish the previous lesson to unlock this one."); return; }
+      loadLesson(id);
+    });
+  });
+}
+
+/* ============================================================
+   MINI VISUAL DIAGRAM
+   ============================================================ */
+function renderViz(viz) {
+  const beforeCls = (r) => {
+    if (!viz.condition) return "";
+    return viz.condition(r) ? "keep" : "drop";
+  };
+  let html = '<div class="mini-viz"><table>' + tableHtml(viz.before.cols, viz.before.rows, beforeCls) + "</table></div>";
+  if (viz.condition) html += '<div class="viz-caption">↑ rows kept (green) vs dropped (faded) by the WHERE / HAVING condition</div>';
+  html += '<div class="viz-caption" style="font-size:16px;color:var(--muted);margin:10px 0 4px">⬇</div>';
+  html += '<div class="mini-viz"><table>' + tableHtml(viz.after.cols, viz.after.rows) + "</table></div>";
+  html += `<div class="viz-caption">${escapeHtml(viz.caption || "")}</div>`;
+  return html;
+}
+
+/* ============================================================
+   LESSON RENDERING
+   ============================================================ */
+function renderLesson() {
+  const l = LESSONS[currentLesson];
+  const schemaHtml = SCHEMA_INFO.map(t => `
+    <div class="schema-table">
+      <h4>▦ ${t.table}</h4>
+      <table>${t.cols.map(c => `<tr><td class="${c[2] === "PK" ? "pk" : ""}">${c[0]}${c[2] === "PK" ? " 🔑" : c[2] === "FK" ? " 🔗" : ""}</td><td>${c[1]}</td></tr>`).join("")}</table>
+    </div>`).join("");
+
+  // --- teach steps ---
+  const teachHtml = l.teach.length ? `
+    <div class="nav-section-title" style="padding-left:0">📖 Learn — ${l.teach.length} interactive steps</div>
+    ${l.teach.map((s, i) => `
+      <div class="teach-step">
+        <div class="step-num">${i + 1}</div>
+        <div class="step-body">
+          <h3>${s.h}</h3>
+          <p>${s.p}</p>
+          ${s.viz ? renderViz(s.viz) : ""}
+          ${s.demo ? `<div class="demo-row"><button class="demo-btn" data-demo="${currentLesson}:${i}">▶ Try it live</button><span class="demo-note">fills the editor and runs instantly</span></div>` : ""}
+        </div>
+      </div>`).join("")}` : "";
+
+  // --- quiz ---
+  const qState = progress[currentLesson] || {};
+  let quizHtml = "";
+  if (l.quiz) {
+    const answered = !!qState.quizAnswered;
+    const correct = !!qState.quizCorrect;
+    quizHtml = `
+      <div class="quiz-card" id="quizCard">
+        <div class="quiz-tag">🧠 Quick check · +10 XP</div>
+        <h3>${l.quiz.q}</h3>
+        ${l.quiz.choices.map((c, i) => {
+          let cls = "quiz-opt";
+          if (answered) {
+            cls += " locked";
+            if (i === l.quiz.answer) cls += " correct";
+            else if (i === (qState.quizPicked ?? -1)) cls += " wrong";
+          }
+          return `<label class="${cls}" data-q="${i}"><input type="radio" name="quiz" ${answered ? "disabled" : ""}><span>${escapeHtml(c)}</span></label>`;
+        }).join("")}
+        <button class="demo-btn" id="quizSubmit" style="margin-top:6px" ${answered ? "disabled" : ""}>Submit answer</button>
+        <div class="quiz-explain ${answered ? "show" : ""}">${answered ? (correct ? "✅ " : "❌ ") + l.quiz.explain : ""}</div>
+      </div>`;
+  }
+
+  $("lessonView").innerHTML = `
+    <div class="lesson-header">
+      <h2>${currentLesson + 1}. ${l.title}</h2>
+      <span class="badge ${l.level}">${l.level}</span>
+      ${isDone(l.id) ? '<span class="badge" style="background:rgba(63,185,80,.15);color:var(--green)">completed</span>' : ""}
+    </div>
+    <div class="teach-intro">${l.intro}</div>
+    ${teachHtml}
+    ${quizHtml}
+    <div class="task"><strong>💪 Your challenge:</strong> ${l.task}</div>
+    <details>
+      <summary>📋 View full database schema (5 tables)</summary>
+      <div class="schema-body">${schemaHtml}</div>
+    </details>`;
+
+  // wire teach demos
+  document.querySelectorAll(".demo-btn[data-demo]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const [lid, idx] = btn.dataset.demo.split(":").map(Number);
+      editor.value = LESSONS[lid].teach[idx].demo + "\n";
+      persistCode();
+      doRun();
+      editor.focus();
+    });
+  });
+  // wire quiz
+  const quizCard = $("quizCard");
+  if (quizCard && !qState.quizAnswered) {
+    let picked = -1;
+    quizCard.querySelectorAll(".quiz-opt").forEach(el => {
+      el.addEventListener("click", () => {
+        picked = +el.dataset.q;
+        quizCard.querySelectorAll(".quiz-opt").forEach(o => o.style.borderColor = "");
+        el.style.borderColor = "var(--purple)";
+        el.querySelector("input").checked = true;
+      });
+    });
+    $("quizSubmit").addEventListener("click", () => {
+      if (picked < 0) { showStatus("info", "Pick an answer first!"); return; }
+      const l2 = LESSONS[currentLesson];
+      const ok = picked === l2.quiz.answer;
+      if (!progress[currentLesson]) progress[currentLesson] = {};
+      progress[currentLesson].quizAnswered = true;
+      progress[currentLesson].quizCorrect = ok;
+      progress[currentLesson].quizPicked = picked;
+      if (ok) addXp(10);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+      renderLesson(); // re-render to lock the quiz and show the explanation
+      showStatus(ok ? "ok" : "info", ok ? "✅ Correct! +10 XP" : "❌ Not quite — read the explanation above.");
+    });
+  }
+}
+
+function loadLesson(id) {
+  if (savedCode.__active !== undefined) { savedCode[savedCode.__active] = editor.value; localStorage.setItem(CODE_KEY, JSON.stringify(savedCode)); }
+  currentLesson = id;
+  savedCode.__active = id;
+  hintLevel = 0;
+  $("hintBtn").textContent = "💡 Hint";
+  renderSidebar();
+  renderLesson();
+  clearOutput();
+  $("revealBox").className = "reveal-box";
+  editor.value = savedCode[id] !== undefined ? savedCode[id] : LESSONS[id].starter;
+  updateExplorer(LESSONS[id].table || "employees");
+  document.querySelector(".content").scrollTop = 0;
+}
+
+function persistCode() {
+  savedCode[currentLesson] = editor.value;
+  localStorage.setItem(CODE_KEY, JSON.stringify(savedCode));
+}
+
+/* ============================================================
+   COMPARE VIEW (expected vs actual)
+   ============================================================ */
+function showCompare(userRes, expRes) {
+  const userSigs = userRes.rows.map(r => JSON.stringify(r.map(normVal)));
+  const expSigs = expRes.rows.map(r => JSON.stringify(r.map(normVal)));
+  const expCounts = {};
+  expSigs.forEach(s => expCounts[s] = (expCounts[s] || 0) + 1);
+  const userCounts = {};
+  userSigs.forEach(s => { userCounts[s] = (userCounts[s] || 0) + 1; });
+
+  // a user row is "bad" if it appears more times than expected has it
+  const expLeft = { ...expCounts };
+  const rowClassUser = (r) => {
+    const s = JSON.stringify(r.map(normVal));
+    if ((expLeft[s] || 0) > 0) { expLeft[s]--; return ""; }
+    return "rowbad";
+  };
+  // an expected row is "missing" if user doesn't have enough copies
+  const userLeft = { ...userCounts };
+  const rowClassExp = (r) => {
+    const s = JSON.stringify(r.map(normVal));
+    if ((userLeft[s] || 0) > 0) { userLeft[s]--; return ""; }
+    return "rowmiss";
+  };
+
+  $("compareWrap").innerHTML = `
+    <div class="compare-wrap">
+      <div class="compare-col">
+        <h4 class="bad">Your result (${userRes.rows.length} rows)</h4>
+        <div class="cmp-table"><table>${tableHtml(userRes.columns, userRes.rows, rowClassUser)}</table></div>
+      </div>
+      <div class="compare-col">
+        <h4 class="good">Expected (${expRes.rows.length} rows)</h4>
+        <div class="cmp-table"><table>${tableHtml(expRes.columns, expRes.rows, rowClassExp)}</table></div>
+      </div>
+    </div>`;
+  document.querySelector(".content").scrollTo({ top: document.querySelector(".content").scrollTop + 200, behavior: "smooth" });
+}
+
+/* ============================================================
+   RUN / CHECK
+   ============================================================ */
+function getUserSql() {
+  const sql = editor.value.trim();
+  if (!sql) { showStatus("err", "Your query is empty. Write some SQL first!"); return null; }
+  return sql;
+}
+
+function doRun() {
+  const sql = getUserSql();
+  if (!sql) return;
+  persistCode();
+  try {
+    renderResult(runSql(sql));
+    $("compareWrap").innerHTML = "";
+    hideStatus();
+  } catch (err) {
+    $("tableWrap").className = "result-table-wrap";
+    $("rowCount").textContent = "";
+    showStatus("err", "⚠ " + err.message);
+  }
+}
+
+function doCheck() {
+  const l = LESSONS[currentLesson];
+  if (l.compare === "none") { showStatus("info", "This is the sandbox — no right answer. Just explore!"); return; }
+  const sql = getUserSql();
+  if (!sql) return;
+
+  let userRes;
+  try { userRes = runSql(sql); }
+  catch (err) { showStatus("err", "⚠ Your query has an error: " + err.message); return; }
+  renderResult(userRes);
+  $("compareWrap").innerHTML = "";
+  hideStatus();
+
+  if (l.compare === "custom") {
+    let finalState, expected;
+    try { finalState = queryOnFreshDb(sql, l.verify); }
+    catch (err) { showStatus("err", "⚠ " + err.message); return; }
+    try {
+      expected = queryOnFreshDb(l.solution, l.verify);
+    } catch (err) { showStatus("err", "Internal error: " + err.message); return; }
+    if (sig(finalState, true) === sig(expected, true)) {
+      celebrate("Lesson complete! The products table looks exactly right.");
+    } else {
+      showStatus("info", "Not quite — compare your final table state against the expected one below.");
+      showCompare(finalState, expected);
+    }
+    return;
+  }
+
+  let expected;
+  try { expected = runSql(l.solution); }
+  catch (err) { showStatus("err", "Internal error: " + err.message); return; }
+
+  const ok = l.compare === "exact"
+    ? sig(userRes, true) === sig(expected, true)
+    : sig(userRes, false) === sig(expected, false);
+
+  if (ok) {
+    celebrate(l.compare === "exact"
+      ? "Correct! Rows and order match perfectly."
+      : "Correct! All the right rows are there.");
+    return;
+  }
+  showCompare(userRes, expected);
+  if (userRes.rows.length !== expected.rows.length) {
+    showStatus("info", `Close — your query returns ${userRes.rows.length} row(s), the expected answer has ${expected.rows.length}. Red rows shouldn't be there; amber rows are missing.`);
+  } else {
+    showStatus("info", l.compare === "exact"
+      ? "Same row count, but order or values differ. Check your ORDER BY and column list against the amber/red rows below."
+      : "Same row count, but some values differ. Compare the highlighted rows below.");
+  }
+}
+
+function celebrate(msg) {
+  markDone(currentLesson);
+  renderSidebar();
+  showStatus("ok", "✅ " + msg + " (+25 XP)");
+  confetti();
+}
+
+function confetti() {
+  const colors = ["#58a6ff", "#3fb950", "#d29922", "#bc8cff", "#f85149", "#e6edf3"];
+  for (let i = 0; i < 60; i++) {
+    const c = document.createElement("div");
+    c.className = "confetti";
+    c.style.background = colors[i % colors.length];
+    c.style.left = (45 + Math.random() * 10) + "%";
+    c.style.top = "30%";
+    document.body.appendChild(c);
+    const angle = Math.random() * Math.PI * 2;
+    const v = 6 + Math.random() * 9;
+    let vx = Math.cos(angle) * v, vy = Math.sin(angle) * v - 6, x = 0, y = 0, rot = 0, op = 1;
+    const spin = (Math.random() - 0.5) * 30;
+    let frame = 0;
+    const max = 90 + Math.random() * 40;
+    (function tick() {
+      frame++; vy += 0.35; x += vx; y += vy; rot += spin;
+      if (frame > max - 30) op -= 1 / 30;
+      c.style.transform = `translate(${x}px, ${y}px) rotate(${rot}deg)`;
+      c.style.opacity = Math.max(op, 0);
+      if (frame < max) requestAnimationFrame(tick); else c.remove();
+    })();
+  }
+}
+
+/* ============================================================
+   HINTS & SOLUTION
+   ============================================================ */
+function showReveal(kind) {
+  const l = LESSONS[currentLesson];
+  const box = $("revealBox");
+  if (kind === "hint") {
+    if (!l.hints.length) { box.innerHTML = "<strong>Sandbox:</strong> no hints needed — experiment!"; box.className = "reveal-box show"; return; }
+    const h = l.hints[Math.min(hintLevel, l.hints.length - 1)];
+    box.innerHTML = `<strong>💡 Hint ${Math.min(hintLevel + 1, l.hints.length)}/${l.hints.length}:</strong> ${escapeHtml(h)}`;
+    box.className = "reveal-box show";
+    hintLevel++;
+    $("hintBtn").textContent = hintLevel >= l.hints.length ? "💡 Last hint shown" : `💡 Hint (${hintLevel + 1}/${l.hints.length})`;
+  } else {
+    if (!l.solution) { box.innerHTML = "<strong>Sandbox:</strong> no solution to show — make your own!"; }
+    else { box.innerHTML = `<strong>👀 One valid solution:</strong><pre>${escapeHtml(l.solution)}</pre>`; }
+    box.className = "reveal-box show";
+  }
+}
+
+/* ============================================================
+   DATABASE EXPLORER (right panel)
+   ============================================================ */
+let explorerTable = "employees";
+function updateExplorer(tableName) {
+  explorerTable = tableName;
+  $("tableTabs").innerHTML = SCHEMA_INFO.map(t =>
+    `<span class="table-tab ${t.table === tableName ? "active" : ""}" data-t="${t.table}">${t.table}</span>`).join("");
+  document.querySelectorAll(".table-tab").forEach(el =>
+    el.addEventListener("click", () => updateExplorer(el.dataset.t)));
+
+  const info = SCHEMA_INFO.find(t => t.table === tableName);
+  $("colChips").innerHTML = info.cols.map(c =>
+    `<span class="chip ${c[2] === "PK" ? "pk" : ""}" data-c="${c[0]}" title="click to insert at cursor">${c[0]}</span>`).join("");
+  document.querySelectorAll("#colChips .chip").forEach(el =>
+    el.addEventListener("click", () => insertAtCursor(el.dataset.c)));
+
+  try {
+    const res = runSql(`SELECT * FROM ${tableName} LIMIT 8;`);
+    $("previewWrap").innerHTML = `<table>${tableHtml(res.columns, res.rows)}</table>`;
+  } catch (e) {
+    $("previewWrap").innerHTML = `<div style="padding:14px;font-size:12px;color:var(--muted)">Preview unavailable.</div>`;
+  }
+}
+function insertAtCursor(text) {
+  const start = editor.selectionStart, end = editor.selectionEnd;
+  const before = editor.value.slice(0, start), after = editor.value.slice(end);
+  const padBefore = before && !/[\s(,]$/.test(before) ? " " : "";
+  editor.value = before + padBefore + text + after;
+  const pos = (before + padBefore + text).length;
+  editor.selectionStart = editor.selectionEnd = pos;
+  persistCode();
+  editor.focus();
+}
+
+/* ============================================================
+   WIRING
+   ============================================================ */
+$("runBtn").addEventListener("click", doRun);
+$("checkBtn").addEventListener("click", doCheck);
+$("resetBtn").addEventListener("click", () => {
+  editor.value = LESSONS[currentLesson].starter;
+  delete savedCode[currentLesson];
+  localStorage.setItem(CODE_KEY, JSON.stringify(savedCode));
+  clearOutput();
+  editor.focus();
+});
+$("hintBtn").addEventListener("click", () => showReveal("hint"));
+$("solutionBtn").addEventListener("click", () => showReveal("solution"));
+
+editor.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); doRun(); }
+  if (e.key === "Tab") {
+    e.preventDefault();
+    const s = editor.selectionStart, en = editor.selectionEnd;
+    editor.value = editor.value.slice(0, s) + "    " + editor.value.slice(en);
+    editor.selectionStart = editor.selectionEnd = s + 4;
+  }
+});
+let debounce;
+editor.addEventListener("input", () => {
+  clearTimeout(debounce);
+  debounce = setTimeout(persistCode, 400);
+});
+
+/* ============================================================
+   INIT
+   ============================================================ */
+(async function init() {
+  $("xpBadge").textContent = `⭐ ${xp} XP`;
+  showStatus("info", "Loading SQLite engine… (first load fetches ~1 MB from CDN)");
+  try { await bootSql(); }
+  catch (e) { showStatus("err", "Failed to load the SQLite engine. Check your internet connection and refresh."); return; }
+  clearOutput();
+  updateProgressBar();
+  const next = LESSONS.find(l => !isDone(l.id) && isUnlocked(l.id));
+  loadLesson(next ? next.id : 0);
+  $("bootNote").remove(); // app is fully interactive — remove the fallback notice
+})();
+</script>
+</body>
+</html>
